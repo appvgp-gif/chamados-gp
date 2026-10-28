@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chamados GP</title>
+<meta name="description" content="Abertura e acompanhamento de chamados de manutenção predial e serviços — Viação Gato Preto">
+<meta name="theme-color" content="#012769">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Chamados GP">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app"></div>
+<noscript>Este app precisa de JavaScript ativado.</noscript>
+<script src="config.js"></script>
+<script>
+  // Carrega os scripts em ordem. Sem API_URL configurada, entra o modo demonstração.
+  (function () {
+    var lista = ['regras.js'].concat((window.APP_CONFIG && window.APP_CONFIG.API_URL) ? [] : ['demo.js']).concat(['api.js', 'app.js']);
+    (function proximo(i) {
+      if (i >= lista.length) return;
+      var s = document.createElement('script');
+      s.src = lista[i]; s.onload = function () { proximo(i + 1); };
+      s.onerror = function () { document.getElementById('app').textContent = 'Não foi possível carregar ' + lista[i] + '. Atualize a página.'; };
+      document.body.appendChild(s);
+    })(0);
+  })();
+</script>
+</body>
+</html>
