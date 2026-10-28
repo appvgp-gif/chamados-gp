@@ -62,7 +62,9 @@
     try {
       st.dados = await api('carregar');
       LS.set('cache', { usuario: eu().id, dados: st.dados });
-      if (silencioso && !$('.modal-fundo') && !document.activeElement.matches('input, textarea, select')) render();
+      // Não redesenha a tela se a pessoa estiver preenchendo algo (formulário aberto, janela aberta ou campo em foco)
+      const preenchendo = partes()[0] === 'novo' || $('.modal-fundo') || document.activeElement.matches('input, textarea, select');
+      if (silencioso && !preenchendo) render();
     } catch (e) { if (!silencioso || !st.dados) throw e; }
   }
   function atualizarLocal(c) {
@@ -125,8 +127,8 @@
     });
   }
   /** Campo de foto reutilizável: devolve um getter da foto escolhida. */
-  function campoFoto(el, id) {
-    let foto = null;
+  function campoFoto(el, id, inicial, aoMudar) {
+    let foto = inicial || null;
     const box = $('#' + id, el);
     const desenhar = () => {
       box.innerHTML = (foto ? '<img src="' + foto + '" alt="Foto escolhida">' : '') +
@@ -134,9 +136,9 @@
         '<input type="file" id="' + id + '-in" accept="image/*" capture="environment">' +
         (foto ? '<button type="button" class="btn perigo" id="' + id + '-rm">Remover</button>' : '');
       $('#' + id + '-in', box).onchange = async e => {
-        try { foto = await reduzirFoto(e.target.files[0]); desenhar(); } catch (err) { toast(err.message, true); }
+        try { foto = await reduzirFoto(e.target.files[0]); desenhar(); if (aoMudar) aoMudar(); } catch (err) { toast(err.message, true); }
       };
-      const rm = $('#' + id + '-rm', box); if (rm) rm.onclick = () => { foto = null; desenhar(); };
+      const rm = $('#' + id + '-rm', box); if (rm) rm.onclick = () => { foto = null; desenhar(); if (aoMudar) aoMudar(); };
     };
     desenhar();
     return () => foto;
@@ -352,12 +354,34 @@
         '<p class="erro-form" id="n-erro" hidden></p>' +
         '<div class="acoes"><button class="btn primario grande" id="n-ok">Abrir chamado</button><a class="btn grande" href="#/">Cancelar</a></div></form></section>',
       montar(el) {
-        const foto = campoFoto(el, 'n-foto');
+        const chaveRasc = 'rascunho:' + eu().id;
+        const rasc = LS.get(chaveRasc, null);
+        let foto;
+        const salvarRasc = () => {
+          const cat = $('input[name=cat]:checked', el);
+          const r = { cat: cat ? cat.value : '', outro: $('#n-outro', el).value, setor: $('#n-setor', el).value,
+            urg: $('input[name=urg]:checked', el).value, local: $('#n-local', el).value, desc: $('#n-desc', el).value, foto: foto ? foto() : null };
+          try { localStorage.setItem('chgp.' + chaveRasc, JSON.stringify(r)); }
+          catch (e) { r.foto = null; LS.set(chaveRasc, r); } // sem espaço para a foto: guarda ao menos o texto
+        };
+        if (rasc) {
+          const c = rasc.cat && $('input[name=cat][value="' + CSS.escape(rasc.cat) + '"]', el); if (c) c.checked = true;
+          $('#box-outro', el).hidden = rasc.cat !== 'Outros';
+          $('#n-outro', el).value = rasc.outro || ''; $('#n-setor', el).value = rasc.setor || '';
+          const u = $('input[name=urg][value="' + (rasc.urg || 'MEDIA') + '"]', el); if (u) u.checked = true;
+          $('#n-local', el).value = rasc.local || ''; $('#n-desc', el).value = rasc.desc || '';
+          if (rasc.cat || rasc.desc || rasc.foto) toast('Recuperamos o que você estava preenchendo');
+        }
+        foto = campoFoto(el, 'n-foto', rasc && rasc.foto, salvarRasc);
+        $('#f-novo', el).addEventListener('input', salvarRasc);
+        $('#f-novo', el).addEventListener('change', salvarRasc);
+        $('a[href="#/"].btn', el).addEventListener('click', () => LS.del(chaveRasc));
         $('#cats', el).onchange = e => {
           const r = e.target; if (r.name !== 'cat') return;
           $('#box-outro', el).hidden = r.value !== 'Outros';
           if (r.value === 'Outros') $('#n-outro', el).focus();
           if (r.dataset.setor) $('#n-setor', el).value = r.dataset.setor;
+          salvarRasc();
         };
         $('#f-novo', el).onsubmit = async e => {
           e.preventDefault();
@@ -368,7 +392,7 @@
           };
           try {
             const c = await ocupado($('#n-ok', el), () => api('abrir', { chamado: dados, foto: foto() }));
-            atualizarLocal(c); toast('Chamado ' + c.numero + ' aberto'); ir('/c/' + c.numero);
+            atualizarLocal(c); LS.del(chaveRasc); toast('Chamado ' + c.numero + ' aberto'); ir('/c/' + c.numero);
           } catch (err) { mostrarErro(el, '#n-erro', err.message); }
         };
       },
