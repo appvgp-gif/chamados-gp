@@ -92,6 +92,11 @@ var Regras = (function () {
     return c;
   }
 
+  /** Pode aceitar e atender chamados deste setor: admin ou quem é da equipe do setor. */
+  function daEquipe(c, user) {
+    return user.perfil === 'ADMIN' || (!!user.setor && mesmo(user.setor, c.setor));
+  }
+
   /** Quais ações este usuário pode fazer neste chamado agora. */
   function acoesPermitidas(c, user) {
     var admin = user.perfil === 'ADMIN';
@@ -99,13 +104,16 @@ var Regras = (function () {
     var autor = mesmo(c.aberto_por, user.nome);
     var a = [];
     if (c.status === 'ABERTO') {
-      a.push('aceitar');
+      if (daEquipe(c, user)) a.push('aceitar');
       if (autor || admin) a.push('cancelar');
     }
-    if (EM_ATENDIMENTO.indexOf(c.status) >= 0 && (resp || admin)) {
-      if (c.status !== 'EM_ANDAMENTO') a.push('iniciar');
-      if (c.status !== 'AGUARDANDO_MATERIAL') a.push('aguardar');
-      a.push('concluir', 'devolver');
+    if (EM_ATENDIMENTO.indexOf(c.status) >= 0) {
+      if (resp || admin) {
+        if (c.status !== 'EM_ANDAMENTO') a.push('iniciar');
+        if (c.status !== 'AGUARDANDO_MATERIAL') a.push('aguardar');
+        a.push('concluir', 'devolver');
+      }
+      if (resp || daEquipe(c, user)) a.push('repassar');
       if (admin) a.push('cancelar');
     }
     if (c.status === 'CONCLUIDO' && (autor || admin)) a.push('confirmar', 'reabrir');
@@ -113,9 +121,16 @@ var Regras = (function () {
     return a;
   }
 
+  /** Confere se a pessoa faz parte da equipe do setor do chamado e devolve o nome como está cadastrado. */
+  function membroDaEquipe(c, nome, listas) {
+    var equipe = (listas && listas.equipes && listas.equipes[c.setor]) || [];
+    for (var i = 0; i < equipe.length; i++) if (mesmo(equipe[i], nome)) return equipe[i];
+    erro(String(nome || 'Essa pessoa') + ' não faz parte da equipe ' + c.setor + '.');
+  }
+
   var ROTULO_ACAO = {
     aceitar: 'Aceitou o chamado', iniciar: 'Iniciou o atendimento', aguardar: 'Aguardando material', devolver: 'Devolveu para a fila',
-    concluir: 'Concluiu o chamado', confirmar: 'Confirmou a solução', reabrir: 'Reabriu o chamado', cancelar: 'Cancelou o chamado',
+    concluir: 'Concluiu o chamado', repassar: 'Repassou o chamado', confirmar: 'Confirmou a solução', reabrir: 'Reabriu o chamado', cancelar: 'Cancelou o chamado',
     editar: 'Editou o chamado', abrir: 'Abriu o chamado', excluir: 'Excluiu o chamado',
   };
 
@@ -126,6 +141,7 @@ var Regras = (function () {
   function aplicar(original, tipo, p, user, agora, listas) {
     p = p || {};
     if (acoesPermitidas(original, user).indexOf(tipo) < 0) {
+      if (tipo === 'aceitar' && original.status === 'ABERTO') erro('Só a equipe ' + original.setor + ' pode aceitar este chamado.');
       erro(tipo === 'aceitar' ? 'Este chamado já foi aceito por outra pessoa.' : 'Você não pode fazer isso neste chamado agora.');
     }
     var c = {};
@@ -133,7 +149,15 @@ var Regras = (function () {
     var detalhe = '';
     switch (tipo) {
       case 'aceitar':
-        c.status = 'ACEITO'; c.aceito_em = agora; c.aceito_por = user.nome; break;
+        var executor = user.nome;
+        if (p.para && !mesmo(p.para, user.nome)) { executor = membroDaEquipe(c, p.para, listas); detalhe = 'Atribuído a ' + executor; }
+        c.status = 'ACEITO'; c.aceito_em = agora; c.aceito_por = executor; break;
+      case 'repassar':
+        if (!p.para) erro('Escolha para quem repassar.');
+        var novo = membroDaEquipe(c, p.para, listas);
+        if (mesmo(novo, c.aceito_por)) erro('O chamado já está com ' + novo + '.');
+        detalhe = 'De ' + c.aceito_por + ' para ' + novo + (txt(p.motivo, 200) ? ' · ' + txt(p.motivo, 200) : '');
+        c.aceito_por = novo; break;
       case 'iniciar':
         c.status = 'EM_ANDAMENTO'; c.motivo_espera = ''; break;
       case 'aguardar':
@@ -181,7 +205,7 @@ var Regras = (function () {
 
   return {
     URGENCIAS: URGENCIAS, STATUS: STATUS, EM_ATENDIMENTO: EM_ATENDIMENTO, FINAIS: FINAIS, CAMPOS: CAMPOS, ROTULO_ACAO: ROTULO_ACAO,
-    abrir: abrir, aplicar: aplicar, acoesPermitidas: acoesPermitidas, situacaoPrazo: situacaoPrazo,
+    abrir: abrir, aplicar: aplicar, acoesPermitidas: acoesPermitidas, daEquipe: daEquipe, situacaoPrazo: situacaoPrazo,
     somarHoras: somarHoras, paraMs: paraMs, deMs: deMs, mesmo: mesmo,
   };
 })();

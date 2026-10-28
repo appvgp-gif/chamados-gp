@@ -205,7 +205,7 @@
     modal('<h2>' + esc(u.nome) + '</h2><p class="eyebrow">' + (u.perfil === 'ADMIN' ? 'Administrador' : 'Usuário') + (u.setor ? ' · ' + esc(u.setor) : '') + '</p>' +
       '<div class="acoes" style="flex-direction:column"><button class="btn grande" id="m-pin">Trocar meu PIN</button>' +
       (window.API.modoDemo && ehAdmin() ? '<button class="btn grande" id="m-rest">Restaurar chamados de exemplo</button>' : '') +
-      '<button class="btn grande perigo" id="m-sair">Sair</button></div><p class="ajuda">Versão do app: 1.1 (28/10/2026)</p><div class="rodape"><button class="btn" data-fechar>Fechar</button></div>',
+      '<button class="btn grande perigo" id="m-sair">Sair</button></div><p class="ajuda">Versão do app: 1.2 (28/10/2026)</p><div class="rodape"><button class="btn" data-fechar>Fechar</button></div>',
       (el, fechar) => {
         $('#m-pin', el).onclick = () => { fechar(); modalPin(); };
         $('#m-sair', el).onclick = () => { fechar(); sair(); };
@@ -235,7 +235,7 @@
       '<div class="campo"><label for="l-nome">Nome</label><input id="l-nome" autocomplete="username" value="' + esc(LS.get('ultimoNome', '')) + '" required></div>' +
       '<div class="campo"><label for="l-pin">PIN</label><input id="l-pin" class="pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="8" required></div>' +
       '<p class="erro-form" id="l-erro" hidden></p><button class="btn primario grande" id="l-ok">Entrar</button></form>' +
-      (window.API.modoDemo ? '<p class="dica">Demonstração: <b>Elton</b> (admin, 1234) · <b>Ana Souza</b> (0000) · <b>Marcos Lima</b>, da Equipe Predial (1111) · <b>Juliana Reis</b>, do TI (2222)</p>' : '') +
+      (window.API.modoDemo ? '<p class="dica">Demonstração: <b>Elton</b> (admin, 1234) · <b>Ana Souza</b> (0000) · <b>Marcos Lima</b>, da Equipe Predial (1111) · <b>Juliana Reis</b>, do TI (2222) · <b>Maurício Alves</b>, chefe do Predial (3333)</p>' : '') +
       '</div></div>';
   }
   function montarLogin() {
@@ -408,7 +408,7 @@
     const dd = (rot, val) => val ? '<div><dt>' + rot + '</dt><dd>' + val + '</dd></div>' : '';
     const BOTOES = {
       aceitar: ['primario', 'Aceitar chamado'], iniciar: ['', 'Iniciar atendimento'], aguardar: ['', 'Aguardando material'],
-      concluir: ['verde', 'Concluir'], devolver: ['', 'Devolver para a fila'], confirmar: ['verde', 'Confirmar solução'],
+      concluir: ['verde', 'Concluir'], repassar: ['', 'Repassar'], devolver: ['', 'Devolver para a fila'], confirmar: ['verde', 'Confirmar solução'],
       reabrir: ['amarelo', 'Não resolveu, reabrir'], cancelar: ['perigo', 'Cancelar chamado'],
     };
     const naBarra = acoes.filter(a => BOTOES[a]);
@@ -417,11 +417,12 @@
         '<div class="cab"><div><div class="eyebrow"><span class="urg ' + esc(c.urgencia) + '">' + R.URGENCIAS[c.urgencia].rotulo + '</span> · ' + esc(categoriaTxt(c)) + '</div>' +
         '<h1>' + esc(c.numero) + '</h1></div><span class="st ' + esc(c.status) + '">' + R.STATUS[c.status] + '</span></div>' +
         '<div class="ficha"><p class="descricao">' + esc(c.descricao) + '</p>' +
+        (c.status === 'ABERTO' && acoes.indexOf('aceitar') < 0 ? '<div class="espera">Aguardando aceite da ' + esc(c.setor) + '.</div>' : '') +
         (c.status === 'AGUARDANDO_MATERIAL' && c.motivo_espera ? '<div class="espera">Aguardando material: ' + esc(c.motivo_espera) + '</div>' : '') +
         '<dl>' + dd('Setor responsável', esc(c.setor)) + dd('Local', esc(c.local)) +
         dd('Prazo', esc(fmtDH(c.prazo)) + (p.txt ? '<br><span class="prazo ' + p.cls + '">' + p.txt + '</span>' : '')) +
         dd('Aberto por', esc(c.aberto_por) + '<br><span class="sub">' + fmtDH(c.aberto_em) + '</span>') +
-        dd('Aceito por', c.aceito_por ? esc(c.aceito_por) + '<br><span class="sub">' + fmtDH(c.aceito_em) + '</span>' : '') +
+        dd(R.EM_ATENDIMENTO.indexOf(c.status) >= 0 ? 'Com' : 'Atendido por', c.aceito_por ? esc(c.aceito_por) + '<br><span class="sub">' + fmtDH(c.aceito_em) + '</span>' : '') +
         dd('Concluído por', c.concluido_por ? esc(c.concluido_por) + '<br><span class="sub">' + fmtDH(c.concluido_em) + '</span>' : '') +
         dd('Confirmado por', c.confirmado_por ? esc(c.confirmado_por) + '<br><span class="sub">' + fmtDH(c.confirmado_em) + '</span>' : '') +
         dd('Reaberturas', c.reaberturas > 0 ? String(c.reaberturas) : '') +
@@ -480,7 +481,39 @@
       cancelar: ['Cancelar chamado', 'Por que este chamado vai ser cancelado?', 'Ex.: Aberto em duplicidade', 'motivo', true],
     };
     const ok = { aceitar: 'Você aceitou ' + c.numero, iniciar: 'Atendimento iniciado', aguardar: 'Marcado como aguardando material', devolver: 'Devolvido para a fila', concluir: 'Chamado concluído', confirmar: 'Solução confirmada. Chamado encerrado', reabrir: 'Chamado reaberto', cancelar: 'Chamado cancelado' };
-    if (tipo === 'aceitar' || tipo === 'iniciar' || tipo === 'confirmar') {
+    const equipe = ((st.dados.listas.equipes || {})[c.setor] || []).slice();
+    if (tipo === 'aceitar' || tipo === 'repassar') {
+      // Quem vai executar: a própria pessoa (se for da equipe) ou um colega do setor
+      let opcoes = equipe.slice();
+      if (tipo === 'aceitar') { opcoes = opcoes.filter(n => !R.mesmo(n, eu().nome)); opcoes.unshift(eu().nome); }
+      else opcoes = opcoes.filter(n => !R.mesmo(n, c.aceito_por));
+      if (tipo === 'aceitar' && opcoes.length === 1) {
+        try { await ocupado(btn, () => enviarAcao(c, 'aceitar')); toast(ok.aceitar); render(); } catch (e) { toast(e.message, true); await carregar().catch(() => {}); render(); }
+        return;
+      }
+      if (!opcoes.length) return toast('Não há outra pessoa cadastrada na equipe ' + c.setor + '.', true);
+      modal('<h2>' + (tipo === 'aceitar' ? 'Aceitar ' : 'Repassar ') + esc(c.numero) + '</h2><form id="f-ac" class="bloco" style="border:0;padding:0">' +
+        '<div class="campo"><span class="rot">Quem vai executar o serviço?</span><div class="escolha" style="flex-direction:column;align-items:stretch">' +
+        opcoes.map((n, i) => '<label><input type="radio" name="para" value="' + esc(n) + '"' + (i === 0 ? ' checked' : '') + '><span>' + esc(n) + (R.mesmo(n, eu().nome) ? ' (eu)' : '') + '</span></label>').join('') + '</div>' +
+        '<span class="ajuda">Só aparecem pessoas cadastradas no setor ' + esc(c.setor) + '.</span></div>' +
+        (tipo === 'repassar' ? '<div class="campo"><label for="a-txt">Motivo (opcional)</label><input id="a-txt" maxlength="200" placeholder="Ex.: Marcos de folga hoje"></div>' : '') +
+        '<p class="erro-form" id="a-erro" hidden></p><div class="rodape"><button type="button" class="btn" data-fechar>Voltar</button><button class="btn primario" id="a-ok">' + (tipo === 'aceitar' ? 'Aceitar' : 'Repassar') + '</button></div></form>',
+        (el, fechar) => {
+          $('#f-ac', el).onsubmit = async e => {
+            e.preventDefault();
+            const para = $('input[name=para]:checked', el).value;
+            const params = { para: para };
+            if (tipo === 'repassar') params.motivo = $('#a-txt', el).value;
+            try {
+              await ocupado($('#a-ok', el), () => enviarAcao(c, tipo, params)); fechar();
+              toast(tipo === 'aceitar' ? (R.mesmo(para, eu().nome) ? ok.aceitar : c.numero + ' aceito e atribuído a ' + para) : c.numero + ' repassado para ' + para);
+              render();
+            } catch (err) { mostrarErro(el, '#a-erro', err.message); }
+          };
+        });
+      return;
+    }
+    if (tipo === 'iniciar' || tipo === 'confirmar') {
       try { await ocupado(btn, () => enviarAcao(c, tipo)); toast(ok[tipo]); render(); } catch (e) { toast(e.message, true); await carregar().catch(() => {}); render(); }
       return;
     }
@@ -539,7 +572,7 @@
     const L = st.dados.listas;
     return {
       html: '<section class="pagina"><div class="cab"><div><div class="eyebrow">Administração</div><h1>Usuários</h1>' +
-        '<div class="sub">Todo usuário pode abrir e aceitar chamados. O administrador também edita, exclui, cancela e cadastra pessoas.</div></div>' +
+        '<div class="sub">Todo usuário abre chamados. Quem tem setor também aceita e atende os chamados do seu setor. O administrador faz tudo isso em qualquer setor, edita, exclui e cadastra pessoas.</div></div>' +
         '<button class="btn primario" id="b-novo-u">' + ICON.mais + 'Novo usuário</button></div>' +
         '<div class="tabela-wrap"><table class="tabela"><thead><tr><th>Nome</th><th>Perfil</th><th>Setor</th><th>Situação</th></tr></thead><tbody id="tb-u"><tr><td colspan="4">Carregando…</td></tr></tbody></table></div>' +
         '<div class="bloco"><h2 class="eyebrow">Setores e categorias</h2><p class="sub">Para incluir ou mudar, edite a aba <b>Listas</b> da planilha (tipo SETOR ou CATEGORIA; na categoria, a coluna setor_padrao é o setor sugerido).</p>' +
@@ -557,7 +590,7 @@
           '<div class="campo"><label for="u-nome">Nome</label><input id="u-nome" required value="' + esc(u ? u.nome : '') + '"><span class="ajuda">É o nome que a pessoa digita para entrar e que aparece nos chamados.</span></div>' +
           '<div class="grade"><div class="campo"><label for="u-perfil">Perfil</label><select id="u-perfil"><option value="USUARIO">Usuário</option><option value="ADMIN"' + (u && u.perfil === 'ADMIN' ? ' selected' : '') + '>Administrador</option></select></div>' +
           '<div class="campo"><label for="u-setor">Setor (opcional)</label><select id="u-setor"><option value="">Nenhum</option>' + L.setores.map(s => '<option' + (u && u.setor === s ? ' selected' : '') + '>' + esc(s) + '</option>').join('') + '</select></div></div>' +
-          '<p class="ajuda">O setor só define qual fila a pessoa vê primeiro.</p>' +
+          '<p class="ajuda">Setor: a pessoa pode aceitar, atender e repassar os chamados desse setor. Sem setor, ela só abre e acompanha chamados.</p>' +
           '<div class="campo"><label for="u-pin">' + (u ? 'Novo PIN (vazio = manter)' : 'PIN') + '</label><input id="u-pin" inputmode="numeric" autocomplete="off"' + (u ? '' : ' required') + '><span class="ajuda">De 4 a 8 números.</span></div>' +
           (u ? '<label class="chip" style="align-self:flex-start"><input type="checkbox" id="u-ativo"' + (u.ativo ? ' checked' : '') + '> Pode entrar no app</label>' : '') +
           '<p class="erro-form" id="u-erro" hidden></p><div class="rodape"><button type="button" class="btn" data-fechar>Cancelar</button><button class="btn primario" id="u-ok">Salvar</button></div></form>',

@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="styles.css?v=1.1">
+<link rel="stylesheet" href="styles.css?v=1.2">
 </head>
 <body>
 <div id="app"></div>
@@ -24,7 +24,7 @@
 <script>
   // Carrega os scripts em ordem. Sem API_URL configurada, entra o modo demonstração.
   (function () {
-    var V = '1.1';
+    var V = '1.2';
     var lista = ['regras.js'].concat((window.APP_CONFIG && window.APP_CONFIG.API_URL) ? [] : ['demo.js']).concat(['api.js', 'app.js']);
     (function proximo(i) {
       if (i >= lista.length) return;
