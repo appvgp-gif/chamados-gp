@@ -1,6 +1,6 @@
 /* Service worker: guarda a "casca" do app para abrir rápido e permitir instalação.
    Os chamados NUNCA vêm do cache: sempre do servidor (Apps Script). */
-const VERSAO = 'chamados-gp-v2';
+const VERSAO = 'chamados-gp-v3';
 const ARQUIVOS = ['./', 'index.html', 'styles.css', 'config.js', 'regras.js', 'api.js', 'app.js', 'manifest.webmanifest',
   'logo-branco.png', 'icon-192.png', 'favicon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSAO).then(c => c.addAll(ARQUIVOS)).then(() => self.skipWaiting())); });
