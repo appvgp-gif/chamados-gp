@@ -205,7 +205,7 @@
     modal('<h2>' + esc(u.nome) + '</h2><p class="eyebrow">' + (u.perfil === 'ADMIN' ? 'Administrador' : 'Usuário') + (u.setor ? ' · ' + esc(u.setor) : '') + '</p>' +
       '<div class="acoes" style="flex-direction:column"><button class="btn grande" id="m-pin">Trocar meu PIN</button>' +
       (window.API.modoDemo && ehAdmin() ? '<button class="btn grande" id="m-rest">Restaurar chamados de exemplo</button>' : '') +
-      '<button class="btn grande perigo" id="m-sair">Sair</button></div><div class="rodape"><button class="btn" data-fechar>Fechar</button></div>',
+      '<button class="btn grande perigo" id="m-sair">Sair</button></div><p class="ajuda">Versão do app: 1.1 (28/10/2026)</p><div class="rodape"><button class="btn" data-fechar>Fechar</button></div>',
       (el, fechar) => {
         $('#m-pin', el).onclick = () => { fechar(); modalPin(); };
         $('#m-sair', el).onclick = () => { fechar(); sair(); };
